@@ -1,0 +1,54 @@
+<html>
+    <head>
+        <title>My First Leaflet Map</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""/>
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+        <script src="./storm_4326.js" ></script>
+    </head>
+    <body>
+   Here is a Hurricane map for Nicholas!
+    <div id="mapid"></div>
+    
+    <style>
+        #mapid{ width: 500px; height: 500px; }
+    </style>
+    <script>  
+    // this means that the following lines will be script 
+    // (it could also or point to an external script file).
+
+    var map = L.map('mapid').setView([25.1,-95.2], 5.3); // YOU CAN CHANGE THE ZOOM
+
+
+    var Esri_WorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+	attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+}).addTo(map);
+
+    var stormicon = L.icon({    // notice the L.icon which is a Leaflet object with properties
+        iconUrl: './hurricane_image.jpg',   
+          // this points to a jpg image obtained from the internet
+        iconSize: [40,40], // size of the icon
+        popupAnchor: [0,0] // where the icon is located relative to the lat lon of the point. 
+        });
+    //YOU COULD CHANGE the iconURL, iconSize and popupAnchor to see how the map changes
+
+
+    // create an HTML variable that will pop up with a UNC Well photo
+        var customPopup = "Hurricane Nicholas 2021<br/><img src='./storm_popup.png' width='100px'/>";
+    // YOU COULD CHANGE the https link to another picture. 
+    // YOU COULD CHANGE the 100px to other values like 50px or 400px to see what happens
+
+    // the following line should go at the end, before script closing tag 
+
+    L.geoJSON(storm, {   // a
+    pointToLayer: function (feature, latlng) { // b
+    return L.marker(latlng, {icon: stormicon});}}) // c
+    .bindPopup(customPopup) // d
+    .addTo(map); // 
+ 
+    </script>
+    </body>
+</html>
