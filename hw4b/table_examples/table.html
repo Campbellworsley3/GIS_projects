@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+
+/* style and html from https://www.w3schools.com/html/tryit.asp?filename=tryhtml_table_intro */
+table {
+  font-family: Tahoma, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+  border-radius: 8px; 
+  overflow: hidden; 
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 10px;
+}
+
+tr:nth-child(even) {
+  background-color: #dddddd;
+}
+
+.good {
+  background-color: rgb(50,141,28);
+  color: black;
+}
+.good-fair {
+  background-color: rgb(80,170,68);
+  color: black;
+}
+.poor {
+  background-color: red;
+  color: black;
+}
+.excellent {
+  background-color: rgb(22,113,0);
+  color: black;
+}
+.not-rated {
+  background-color: lightgrey;
+  color: black;
+}
+.fair {
+  background-color: rgb(134,198,119);
+  color: black;
+}
+</style>
+</head>
+<script src="./HW_4_geog456.js"></script>
+<body>
+
+<h2 style="font-family: 'Verdana', sans-serif; color: #007acc;" >DWR Fish Community Assessment Locations</h2>
+<h4 style="font-family: 'Verdana', sans-serif; color: #3498db;">This is a data set which includes the ratings for fishing locations across North Carolina by the body of water.</h4>
+
+<table id="mytable">
+  <tr>
+    <th>Body of Water</th>
+    <th>Bio Class</th>
+  </tr>
+  
+</table>
+
+<script>
+  var x = document.getElementById('mytable')
+//   console.log('hello')
+  
+  for (var i =0; i <data.features.length; i++){
+
+    var myNewRow = document.createElement('tr');
+    var myNewCell1 = document.createElement('td');
+    var myNewCell2 = document.createElement('td');
+    var row = data.features[i].properties.Bioclass
+    var row1 = data.features[i].properties.Waterbody
+
+    myNewCell1.innerHTML = row1;
+    myNewCell2.innerHTML = row;
+    myNewCell2.className = getClassName(row);
+
+    myNewRow.append(myNewCell1);
+    myNewRow.append(myNewCell2);
+    x.append(myNewRow);
+
+  } 
+
+  function checkType(value) {
+    if (typeof value === "string") {
+        return "String";
+    } else if (typeof value === "number") {
+        return "Number";
+    } else {
+        return "Other";
+    }
+}
+
+function getClassName(d){
+  if (d === 'Good') return 'good';
+  if (d === 'Good-Fair') return 'good-fair';
+  if (d === 'Poor') return 'poor';
+  if (d === 'Excellent') return 'excellent';
+  if (d === 'Fair') return 'fair';
+  if (d === 'Not-Rated') return 'not-rated';
+  return '';
+}
+
+</script>
+
+</body>
+
+
+</html>
+
+
