@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COVID Map with Date Slider</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" 
+    integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ==" 
+    crossorigin=""/>
+    
+    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js" 
+    integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ==" 
+    crossorigin=""></script>
+
+    <script src="covid_data1.js"></script> 
+
+    <style>
+        body { 
+            background-color: rgb(12, 87, 12);
+            text-align: center;
+        }
+
+        #map { 
+            width: 80%;
+            height: 600px;
+            margin: auto;
+            border: 2px solid white;
+        }
+
+        #slider {
+            width: 80%;
+            margin: auto;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2 style="color: white;">North Carolina COVID Cases Map</h2>
+    <div id="map"></div>
+    <input type="range" id="slider" min="0" max="1140" value="0" step="1">
+    <span id="slider-value"></span>
+
+    <script>
+        var map = L.map('map').setView([35, -80], 7);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        function getDateFromSliderValue(sliderValue) {
+            var dates = Object.keys(covid.features[0].properties).filter(key => key !== "Admin2" && key !== "Lat" && key !== "Long_");
+            return dates[sliderValue];
+        }
+
+        var geojsonLayer = L.geoJson(covid, {
+            onEachFeature: function (feature, layer) {
+                layer.bindPopup(
+                    `<strong>County:</strong> ${feature.properties.Admin2}<br>
+                     <strong>Latitude:</strong> ${feature.properties.Lat}<br>
+                     <strong>Longitude:</strong> ${feature.properties.Long_}`
+                );
+            }
+        }).addTo(map);
+
+        function updateMapForDate(sliderValue) {
+            var selectedDate = getDateFromSliderValue(sliderValue);
+            geojsonLayer.eachLayer(function (layer) {
+                var county = layer.feature.properties.Admin2;
+                var caseCount = layer.feature.properties[selectedDate];
+
+                if (caseCount !== false) {
+                    layer.setStyle({
+                        fillColor: getColorForCaseCount(caseCount),
+                        weight: 1,
+                        color: 'black',
+                        fillOpacity: 0.7
+                    });
+                    layer.bindPopup(
+                        `<strong>County:</strong> ${county}<br>
+                         <strong>Date:</strong> ${selectedDate}<br>
+                         <strong>Cases:</strong> ${caseCount}`
+                    );
+                }
+            });
+        }
+        function getColorForCaseCount(caseCount) {
+            return caseCount > 250000 ? '#800026' :
+                   caseCount > 150000  ? '#BD0026' :
+                   caseCount > 50000  ? '#E31A1C' :
+                   caseCount > 10000  ? '#FC4E2A' :
+                   caseCount > 1000   ? '#FD8D3C' :
+                   caseCount > 0   ? '#FEB24C' :
+                                     '#FFEDA0';
+        }
+
+    
+        document.getElementById('slider').addEventListener('input', function (e) {
+            var sliderValue = e.target.value;
+            document.getElementById('slider-value').innerText = getDateFromSliderValue(sliderValue);
+            updateMapForDate(sliderValue);
+        });
+
+        updateMapForDate(0);
+
+    </script>
+</body>
+</html>
