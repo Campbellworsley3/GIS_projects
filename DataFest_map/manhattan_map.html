@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manhattan</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+  <script src="manhattan_data_new.js"></script>
+
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      display: flex;
+      justify-content: flex-start;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #map {
+      width: 80%;
+      height: 100%;
+      border: 2px solid white;
+    }
+
+    #info-panel {
+      width: 30%;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+      height: 100%;
+      box-sizing: border-box;
+      border-left: 2px solid white;
+    }
+
+    #slider {
+      width: 80%;
+      margin-top: 20px;
+    }
+
+    .switch-container {
+      margin-top: 15px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 34px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 26px;
+      width: 26px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: #2196F3;
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(26px);
+    }
+
+    .label-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 5px;
+      font-size: 16px;
+    }
+
+    #legend {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+      width: 200px;
+      font-family: Arial, sans-serif;
+    }
+
+    .legend h4 {
+      text-align: center;
+      margin: 5px 0;
+      color: black;
+    }
+
+    .gradient-legend {
+      height: 40px;
+      border-radius: 5px;
+    }
+
+    #space-legend {
+      background: linear-gradient(to left, 
+      #7a72ff,#7e85ff,#8497ff,#93acff,#a9bcff, #b4caff,#c1d3ff,#c5dbff,#dbeaff);
+    }
+
+    #rent-legend {
+      background: linear-gradient(to right, 
+        #a50f15, #de2d26, #fb6a4a, #fcae91, #fee5d9);
+    }
+
+    .legend-text {
+      font-size: 12px;
+      margin: 0;
+      color: black;
+    }
+
+    /* Title Styling */
+    h2 {
+      font-size: 24px;
+      margin-bottom: 15px;
+    }
+    
+    #polygon-info p {
+      font-size: 16px;
+    }
+    
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+  
+  <!-- Information panel on the left side -->
+  <div id="info-panel">
+    <h1> Available Space and Rent</h1>
+    <h2>Polygon Info</h2>
+    <div id="polygon-info">
+      <p>Click on a polygon to view details here.</p>
+    </div>
+    <h3>Time: <span id="slider-value">2018-Q1</span></h3>
+    <input type="range" id="slider" min="0" max="27" value="0" step="1">
+    <span id="slider-value"></span>
+    <div class="switch-container">
+      <label class="switch">
+        <input type="checkbox" id="classToggle">
+        <span class="slider-toggle"></span>
+      </label>
+      <div class="label-container">
+        <span>Class O | Class A</span>
+      </div>
+    </div>
+    <div class="switch-container">
+      <label class="switch">
+        <input type="checkbox" id="rentToggle">
+        <span class="slider-toggle"></span>
+      </label>
+      <div class="label-container">
+        <span>Available Space | Rent</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var map = L.map('map').setView([40.7451, -73.9812], 12.5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    var geojsonLayer;
+    var currentClass = 'O';
+    var currentDataMode = 'available_space'; // Start with available space
+    var lastClickedFeature = null;
+
+    function getDateFromSliderValue(sliderValue) {
+      var dates = [
+        '2018-Q1','2018-Q2','2018-Q3','2018-Q4',
+        '2019-Q1','2019-Q2','2019-Q3','2019-Q4',
+        '2020-Q1','2020-Q2','2020-Q3','2020-Q4',
+        '2021-Q1','2021-Q2','2021-Q3','2021-Q4',
+        '2022-Q1','2022-Q2','2022-Q3','2022-Q4',
+        '2023-Q1','2023-Q2','2023-Q3','2023-Q4',
+        '2024-Q1','2024-Q2','2024-Q3','2024-Q4'
+      ];
+      return dates[sliderValue];
+    }
+
+    // Gradient for Available Space (based on provided stats)
+    function getColorForSpace1(availableSpace) {
+  if (availableSpace <= 28500000) return "#dbeaff"; // Dark blue for low space
+  if (availableSpace <= 31500000) return "#c5dbff"; // Darker blue
+  if (availableSpace <= 34500000) return "#c1d3ff"; // Medium dark blue
+  if (availableSpace <= 37500000) return "#b4caff"; // Lighter blue
+  if (availableSpace <= 40500000) return "#a9bcff"; // Light blue
+  if (availableSpace <= 43500000) return "#93acff"; // Very light blue
+  if (availableSpace <= 46500000) return "#8497ff"; // Extremely light blue
+  if (availableSpace <= 50500000) return "#7e85ff"; // Very pale blue
+  if (availableSpace <= 54600000) return "#7a72ff"; // Almost white
+  return "#f4f7ff"; // White for highest space
+}
+    // Gradient for Available Space (based on provided stats)
+    function getColorForSpace(availableSpace) {
+  if (availableSpace <= 20756800) return "#dbeaff"; // Dark blue for low space
+  if (availableSpace <= 22756800) return "#c5dbff"; // Darker blue
+  if (availableSpace <= 24756800) return "#c1d3ff"; // Medium dark blue
+  if (availableSpace <= 26756800) return "#b4caff"; // Lighter blue
+  if (availableSpace <= 28756800) return "#a9bcff"; // Light blue
+  if (availableSpace <= 32756800) return "#93acff"; // Very light blue
+  if (availableSpace <= 35756800) return "#8497ff"; // Extremely light blue
+  if (availableSpace <= 37756800) return "#7e85ff"; // Very pale blue
+  if (availableSpace <= 39970000) return "#7a72ff"; // Almost white
+  return "#f4f7ff"; // White for highest space
+}
+
+// Gradient for Rent (based on provided stats)
+function getColorForRent(rent) {
+  if (rent < 74.5) return "#a50f15"; // Very dark red for low rent
+  if (rent < 76.63) return "#de2d26"; // Dark red
+  if (rent < 77.62) return "#fb6a4a"; // Medium dark red
+  if (rent < 78.61) return "#fcae91"; // Medium red
+  if (rent < 79.60) return "#fee5d9"; // Light red
+  if (rent < 80.59) return "#ffcccb"; // Very light red
+  if (rent < 81.58) return "#ffb3b3"; // Pale red
+  if (rent < 82.57) return "#ff9999"; // Light pale red
+  if (rent < 85.56) return "#ff6666"; // Soft red
+  return "#ff3333"; // Bright red for high rent
+}
+
+
+
+
+    function updateMapForDate(sliderValue) {
+      var selectedDate = getDateFromSliderValue(sliderValue);
+      document.getElementById('slider-value').innerText = selectedDate;
+
+      var filteredData = manhattan.features.filter(feature =>
+        feature.properties.manhattan_data_rent_internal_class === currentClass &&
+        feature.properties.manhattan_data_rent_year_quarter === selectedDate
+      );
+
+      if (geojsonLayer) {
+        map.removeLayer(geojsonLayer);
+      }
+// Inside the updateMapForDate function, where you apply the color
+geojsonLayer = L.geoJSON(filteredData, {
+  style: function (feature) {
+    var space = feature.properties.manhattan_data_rent_available_space;
+    var rent = feature.properties.manhattan_data_rent_overall_rent;
+    
+    var color;
+    if (currentClass === 'A') {
+      // Use getColorForSpace1() when the internal class is 'A'
+      color = (currentDataMode === 'available_space') ? getColorForSpace1(space) : getColorForRent(rent);
+    } else {
+      // Use getColorForSpace() for the default class (class O)
+      color = (currentDataMode === 'available_space') ? getColorForSpace(space) : getColorForRent(rent);
+    }
+
+    // Return the style with the color
+    return {
+      color: 'white',
+      weight: 1,
+      fillColor: color,
+      fillOpacity: 1  // Fixed opacity here
+    };
+  },
+  onEachFeature: function (feature, layer) {
+    layer.on('click', function () {
+      lastClickedFeature = feature;
+      updateInfoPanel(feature);
+    });
+  }
+}).addTo(map);
+
+    }
+
+    function updateInfoPanel(feature) {
+      var content = `
+        <strong>Label:</strong> ${feature.properties.label}<br>
+        <strong>Available Space:</strong> ${feature.properties.manhattan_data_rent_available_space} sq ft<br>
+        <strong>Rent:</strong> $${feature.properties.manhattan_data_rent_overall_rent}<br>
+        <strong>Time:</strong> ${feature.properties.manhattan_data_rent_year_quarter}
+      `;
+      document.getElementById('polygon-info').innerHTML = content;
+    }
+
+    document.getElementById('slider').addEventListener('input', function (e) {
+      updateMapForDate(e.target.value);
+      if (lastClickedFeature) {
+        updateInfoPanel(lastClickedFeature);
+      }
+    });
+
+    document.getElementById('classToggle').addEventListener('change', function (e) {
+      currentClass = e.target.checked ? 'A' : 'O';
+      updateMapForDate(document.getElementById('slider').value);
+    });
+
+    document.getElementById('rentToggle').addEventListener('change', function (e) {
+      currentDataMode = e.target.checked ? 'rent' : 'available_space';
+      updateMapForDate(document.getElementById('slider').value);
+    });
+
+    var legend = L.control({position: 'topright'});
+    legend.onAdd = function (map) {
+      var div = L.DomUtil.create('div', 'info legend');
+      div.innerHTML = `
+        <h4>Available Space</h4>
+        <div class="gradient-legend" id="space-legend"></div>
+        <p class="legend-text">Less <span style="float:right">More</span></p>
+        <h4>Rent</h4>
+        <div class="gradient-legend" id="rent-legend"></div>
+        <p class="legend-text">Lower <span style="float:right">Higher</span></p>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+
+    // Initial map load
+    updateMapForDate(0);
+  </script>
+</body>
+</html>
