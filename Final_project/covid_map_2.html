@@ -1,110 +1,330 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COVID Map with Date Slider</title>
-    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" 
-    integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ==" 
-    crossorigin=""/>
-    
-    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js" 
-    integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ==" 
-    crossorigin=""></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>COVID-19 Weekly Cases Map</title>
 
-    <script src="covid_data1.js"></script> 
+  <!-- Leaflet CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-    <style>
-        body { 
-            background-color: rgb(12, 87, 12);
-            text-align: center;
-        }
+  <!-- Chart.js for the vaccine graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-        #map { 
-            width: 80%;
-            height: 600px;
-            margin: auto;
-            border: 2px solid white;
-        }
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #95b5c8;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+    }
 
-        #slider {
-            width: 80%;
-            margin: auto;
-            margin-top: 20px;
-        }
-    </style>
+    h1 {
+      color: #333;
+      margin-top: 30px;
+      font-size: 2.5rem;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #slider-container {
+      margin-top: 20px;
+      text-align: center;
+      width: 80%;
+    }
+
+    label {
+      font-size: 1.2rem;
+      color: #333;
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      width: 100%;
+      margin-top: 10px;
+      height: 10px;
+      background: #ddd;
+      border-radius: 5px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #007bff;
+      cursor: pointer;
+    }
+
+    input[type=range]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #007bff;
+      cursor: pointer;
+    }
+
+    #map {
+      height: 600px;
+      width: 75%;
+      margin-top: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+    }
+
+    #graph-container {
+      width: 75%;
+      margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #fff;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      margin-bottom: 50px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 500px;
+    }
+
+    #weekLabel {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #007bff;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      background-color: #007bff;
+      color: white;
+      font-size: 1rem;
+      width: 100%;
+      margin-top: 50px;
+    }
+
+    /* Legend Styling */
+    .info.legend {
+      background: white;
+      border-radius: 5px;
+      padding: 10px;
+      box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .info.legend i {
+      width: 18px;
+      height: 18px;
+      display: inline-block;
+      margin-right: 8px;
+      border-radius: 3px;
+    }
+  </style>
 </head>
 <body>
-    <h2 style="color: white;">North Carolina COVID Cases Map</h2>
-    <div id="map"></div>
-    <input type="range" id="slider" min="0" max="1140" value="0" step="1">
-    <span id="slider-value"></span>
 
-    <script>
-        var map = L.map('map').setView([35, -80], 7);
+  <h1>COVID-19 Weekly Cases Map</h1>
+  
+  <!-- Slider -->
+  <div id="slider-container">
+    <label for="weekSlider"><strong>Week:</strong> <span id="weekLabel">1</span></label><br>
+    <input type="range" id="weekSlider" min="0" max="0" value="0" step="1" />
+  </div>
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+  <div id="map"></div>
 
-        function getDateFromSliderValue(sliderValue) {
-            var dates = Object.keys(covid.features[0].properties).filter(key => key !== "Admin2" && key !== "Lat" && key !== "Long_");
-            return dates[sliderValue];
+  <div id="graph-container">
+    <h3 style="color: #007bff;">Vaccine Doses (Daily, 7-Day Average)</h3>
+    <canvas id="vaccineGraph"></canvas>
+  </div>
+
+  <!-- Your GeoJSON data -->
+  <script src="covid_US.js"></script> <!-- Include your GeoJSON data here -->
+  
+  <!-- External JS with vaccine data -->
+  <script src="vaccine.js"></script> <!-- Include the vaccine data as a JS file -->
+
+  <script>
+    const map = L.map('map').setView([41.8781, -87.6298], 5); // Centered on US
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Get date labels from the special feature with geoid = 0
+    const dateLabelFeature = covidData.features.find(f => f.properties.geoid === "0");
+    const dateLabels = dateLabelFeature ? dateLabelFeature.properties.covid_array_weekly_cases : [];
+
+    // Filter out the label row and ensure valid geometry
+    const dataFeatures = covidData.features.filter(f => f.properties.geoid !== 0 && f.geometry);
+
+    // Reference to GeoJSON layer
+    let geoJsonLayer = null;
+
+    // Define color scale for cases
+    function getColor(d) {
+      return d > 100000 ? '#800026' :
+             d > 50000  ? '#BD0026' :
+             d > 20000  ? '#E31A1C' :
+             d > 10000  ? '#FC4E2A' :
+             d > 5000   ? '#FD8D3C' :
+             d > 1000   ? '#FEB24C' :
+             d > 0     ? '#FED976' :
+                         '#FFEDA0';
+    }
+
+    function updateMapStyle(weekIndex) {
+      if (geoJsonLayer) {
+        map.removeLayer(geoJsonLayer);
+      }
+
+      geoJsonLayer = L.geoJSON(dataFeatures, {
+        style: function(feature) {
+          const cases = feature.properties.covid_array_weekly_cases ? feature.properties.covid_array_weekly_cases[weekIndex] : null;
+
+          return {
+            fillColor: cases !== null ? getColor(cases) : '#cccccc', // Default color for missing cases
+            weight: 1,
+            opacity: 1,
+            color: 'white',
+            fillOpacity: 0.7
+          };
+        },
+        onEachFeature: function(feature, layer) {
+          const name = feature.properties.name || 'Unknown';
+          const cases = feature.properties.covid_array_weekly_cases ? feature.properties.covid_array_weekly_cases[weekIndex] : 0;
+          const date = dateLabels[weekIndex] || `Week ${weekIndex + 1}`;
+
+          layer.bindPopup(`<strong>${name}</strong><br>${date}: ${cases !== null ? cases : 'Data not available'}`);
         }
+      }).addTo(map);
+    }
 
-        var geojsonLayer = L.geoJson(covid, {
-            onEachFeature: function (feature, layer) {
-                layer.bindPopup(
-                    `<strong>County:</strong> ${feature.properties.Admin2}<br>
-                     <strong>Latitude:</strong> ${feature.properties.Lat}<br>
-                     <strong>Longitude:</strong> ${feature.properties.Long_}`
-                );
-            }
-        }).addTo(map);
+    // Setup slider
+    const slider = document.getElementById("weekSlider");
+    const weekLabel = document.getElementById("weekLabel");
 
-        function updateMapForDate(sliderValue) {
-            var selectedDate = getDateFromSliderValue(sliderValue);
-            geojsonLayer.eachLayer(function (layer) {
-                var county = layer.feature.properties.Admin2;
-                var caseCount = layer.feature.properties[selectedDate];
+    if (dateLabels.length > 0) {
+      slider.max = dateLabels.length - 1;
+      slider.addEventListener("input", function() {
+        const weekIndex = parseInt(this.value);
+        weekLabel.textContent = dateLabels[weekIndex] || `Week ${weekIndex + 1}`;
+        updateMapStyle(weekIndex);
+      });
 
-                if (caseCount !== false) {
-                    layer.setStyle({
-                        fillColor: getColorForCaseCount(caseCount),
-                        weight: 1,
-                        color: 'black',
-                        fillOpacity: 0.7
-                    });
-                    layer.bindPopup(
-                        `<strong>County:</strong> ${county}<br>
-                         <strong>Date:</strong> ${selectedDate}<br>
-                         <strong>Cases:</strong> ${caseCount}`
-                    );
+      // Initialize with week 0
+      weekLabel.textContent = dateLabels[0];
+      updateMapStyle(0);
+    } else {
+      console.error("No date labels found (check geoid=0 row in GeoJSON).");
+    }
+
+    // Render the vaccine graph using Chart.js
+    function renderVaccineGraph(data) {
+      const ctx = document.getElementById('vaccineGraph').getContext('2d');
+      const labels = data.map(d => d.Day);
+      const doses = data.map(d => d["COVID-19 doses (daily, 7-day average, per million people)"]);
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Vaccine Doses (Daily, 7-Day Avg.)',
+            data: doses,
+            borderColor: '#007bff', // Changed to match the color scheme
+            fill: false,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Date',
+                font: {
+                  size: 14
                 }
-            });
+              },
+              ticks: {
+                autoSkip: true,
+                maxTicksLimit: 10
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Doses per Million People',
+                font: {
+                  size: 14
+                }
+              },
+              beginAtZero: true
+            }
+          },
+          responsive: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              backgroundColor: '#333',
+              titleColor: '#fff',
+              bodyColor: '#fff'
+            }
+          }
         }
-        function getColorForCaseCount(caseCount) {
-            return caseCount > 250000 ? '#800026' :
-                   caseCount > 150000  ? '#BD0026' :
-                   caseCount > 50000  ? '#E31A1C' :
-                   caseCount > 10000  ? '#FC4E2A' :
-                   caseCount > 1000   ? '#FD8D3C' :
-                   caseCount > 0   ? '#FEB24C' :
-                                     '#FFEDA0';
+      });
+    }
+
+    // Add the legend to the map
+    function addLegend() {
+      const legend = L.control({position: 'bottomright'});
+
+      legend.onAdd = function() {
+        const div = L.DomUtil.create('div', 'info legend');
+        const grades = [0, 1000, 5000, 10000, 20000, 50000, 100000];
+        const labels = [];
+        const colors = [
+          '#FFEDA0', '#FED976', '#FEB24C', '#FD8D3C', '#FC4E2A', '#E31A1C', '#BD0026', '#800026'
+        ];
+
+        // Loop through the grades and generate a label with a colored square for each
+        for (let i = 0; i < grades.length; i++) {
+          labels.push(
+            '<i style="background:' + colors[i] + '"></i> ' +
+            grades[i] + (grades[i + 1] ? ' &ndash; ' + grades[i + 1] : '+')
+          );
         }
 
-    
-        document.getElementById('slider').addEventListener('input', function (e) {
-            var sliderValue = e.target.value;
-            document.getElementById('slider-value').innerText = getDateFromSliderValue(sliderValue);
-            updateMapForDate(sliderValue);
-        });
+        div.innerHTML = labels.join('<br>');
+        return div;
+      };
 
-        updateMapForDate(0);
+      legend.addTo(map);
+    }
 
-    </script>
+    // Call the addLegend function to display the legend
+    addLegend();
+
+    // Render the vaccine graph with the embedded JSON data
+    renderVaccineGraph(vaccine); // Use the vaccine data from the external JS file
+  </script>
+
+  <footer>
+    <p>© 2025 COVID-19 Data Visualization Project</p>
+  </footer>
 </body>
 </html>
