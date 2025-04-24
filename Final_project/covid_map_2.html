@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <!-- Chart.js for the vaccine graph -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -21,8 +21,6 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
     }
 
     h1 {
@@ -30,7 +28,6 @@
       margin-top: 30px;
       font-size: 2.5rem;
       font-weight: bold;
-      text-align: center;
     }
 
     #slider-container {
@@ -48,60 +45,36 @@
     input[type=range] {
       width: 100%;
       margin-top: 10px;
-      height: 10px;
-      background: #ddd;
-      border-radius: 5px;
-      outline: none;
-    }
-
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #007bff;
-      cursor: pointer;
-    }
-
-    input[type=range]::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #007bff;
-      cursor: pointer;
     }
 
     #map {
       height: 600px;
       width: 75%;
       margin-top: 20px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
 
-    #graph-container {
+    .graph-section {
       width: 75%;
       margin-top: 30px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
       background-color: #fff;
       padding: 20px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       border-radius: 10px;
-      margin-bottom: 50px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
 
     canvas {
-      width: 100%;
-      height: 500px;
+      width: 100% !important;
+      height: 400px !important;
     }
 
-    #weekLabel {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: #007bff;
+    .toggle-controls {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     footer {
@@ -109,33 +82,33 @@
       padding: 20px;
       background-color: #007bff;
       color: white;
-      font-size: 1rem;
       width: 100%;
       margin-top: 50px;
     }
 
-    /* Legend Styling */
     .info.legend {
       background: white;
-      border-radius: 5px;
       padding: 10px;
-      box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1);
+      line-height: 18px;
+      color: #333;
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      font-size: 14px;
     }
 
     .info.legend i {
       width: 18px;
       height: 18px;
-      display: inline-block;
+      float: left;
       margin-right: 8px;
-      border-radius: 3px;
+      opacity: 0.7;
     }
   </style>
 </head>
 <body>
 
-  <h1>COVID-19 Weekly Cases Map</h1>
-  
-  <!-- Slider -->
+  <h1>COVID-19 Weekly Cases 2020-2023</h1>
+
   <div id="slider-container">
     <label for="weekSlider"><strong>Week:</strong> <span id="weekLabel">1</span></label><br>
     <input type="range" id="weekSlider" min="0" max="0" value="0" step="1" />
@@ -143,57 +116,59 @@
 
   <div id="map"></div>
 
-  <div id="graph-container">
-    <h3 style="color: #007bff;">Vaccine Doses (Daily, 7-Day Average)</h3>
-    <canvas id="vaccineGraph"></canvas>
+  <div class="graph-section">
+    <h3 style="color:#007bff;">COVID-19 Trends Over Time</h3>
+    <div class="toggle-controls">
+      <label><input type="checkbox" id="toggleCases" checked> Cases</label>
+      <label><input type="checkbox" id="toggleDeaths" checked> Deaths</label>
+      <label><input type="checkbox" id="toggleVaccines" checked> Vaccine Doses</label>
+    </div>
+    <canvas id="covidGraph"></canvas>
   </div>
 
-  <!-- Your GeoJSON data -->
-  <script src="covid_US.js"></script> <!-- Include your GeoJSON data here -->
-  
-  <!-- External JS with vaccine data -->
-  <script src="vaccine.js"></script> <!-- Include the vaccine data as a JS file -->
+  <!-- External data files -->
+  <script src="covid_weekly.js"></script>
+  <script src="vaccine.js"></script>
+  <script src="covid_deaths.js"></script>
+  <script src="covid_cases.js"></script>
 
   <script>
-    const map = L.map('map').setView([41.8781, -87.6298], 5); // Centered on US
+    const map = L.map('map').setView([41.8781, -87.6298], 5);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Get date labels from the special feature with geoid = 0
     const dateLabelFeature = covidData.features.find(f => f.properties.geoid === "0");
-    const dateLabels = dateLabelFeature ? dateLabelFeature.properties.covid_array_weekly_cases : [];
-
-    // Filter out the label row and ensure valid geometry
+    const dateLabels = dateLabelFeature?.properties.covid_weekly_trimmed_weekly_cases || [];
     const dataFeatures = covidData.features.filter(f => f.properties.geoid !== 0 && f.geometry);
 
-    // Reference to GeoJSON layer
     let geoJsonLayer = null;
 
-    // Define color scale for cases
-    function getColor(d) {
-      return d > 100000 ? '#800026' :
-             d > 50000  ? '#BD0026' :
-             d > 20000  ? '#E31A1C' :
-             d > 10000  ? '#FC4E2A' :
-             d > 5000   ? '#FD8D3C' :
-             d > 1000   ? '#FEB24C' :
-             d > 0     ? '#FED976' :
-                         '#FFEDA0';
+    const slider = document.getElementById("weekSlider");
+    const weekLabel = document.getElementById("weekLabel");
+
+    function getColor(value) {
+      const scale = [1000, 5000, 10000, 20000, 50000, 100000, 300000];
+      return value > scale[6] ? "#4d0000" :
+             value > scale[5] ? '#800026' :
+             value > scale[4] ? '#BD0026' :
+             value > scale[3] ? '#E31A1C' :
+             value > scale[2] ? '#FC4E2A' :
+             value > scale[1] ? '#FD8D3C' :
+             value > scale[0] ? '#FEB24C' :
+             value > 0         ? '#FED976' :
+                                 '#FFEDA0';
     }
 
     function updateMapStyle(weekIndex) {
-      if (geoJsonLayer) {
-        map.removeLayer(geoJsonLayer);
-      }
+      if (geoJsonLayer) map.removeLayer(geoJsonLayer);
 
       geoJsonLayer = L.geoJSON(dataFeatures, {
         style: function(feature) {
-          const cases = feature.properties.covid_array_weekly_cases ? feature.properties.covid_array_weekly_cases[weekIndex] : null;
-
+          const value = feature.properties.covid_weekly_trimmed_weekly_cases?.[weekIndex] || 0;
           return {
-            fillColor: cases !== null ? getColor(cases) : '#cccccc', // Default color for missing cases
+            fillColor: getColor(value),
             weight: 1,
             opacity: 1,
             color: 'white',
@@ -202,125 +177,116 @@
         },
         onEachFeature: function(feature, layer) {
           const name = feature.properties.name || 'Unknown';
-          const cases = feature.properties.covid_array_weekly_cases ? feature.properties.covid_array_weekly_cases[weekIndex] : 0;
+          const value = feature.properties.covid_weekly_trimmed_weekly_cases?.[weekIndex] || 0;
           const date = dateLabels[weekIndex] || `Week ${weekIndex + 1}`;
-
-          layer.bindPopup(`<strong>${name}</strong><br>${date}: ${cases !== null ? cases : 'Data not available'}`);
+          layer.bindPopup(`<strong>${name}</strong><br>${date}: ${value ?? 'N/A'} cases`);
         }
       }).addTo(map);
     }
 
-    // Setup slider
-    const slider = document.getElementById("weekSlider");
-    const weekLabel = document.getElementById("weekLabel");
+    slider.addEventListener("input", function () {
+      const weekIndex = parseInt(this.value);
+      weekLabel.textContent = dateLabels[weekIndex] || `Week ${weekIndex + 1}`;
+      updateMapStyle(weekIndex);
+    });
 
     if (dateLabels.length > 0) {
       slider.max = dateLabels.length - 1;
-      slider.addEventListener("input", function() {
-        const weekIndex = parseInt(this.value);
-        weekLabel.textContent = dateLabels[weekIndex] || `Week ${weekIndex + 1}`;
-        updateMapStyle(weekIndex);
-      });
-
-      // Initialize with week 0
       weekLabel.textContent = dateLabels[0];
       updateMapStyle(0);
-    } else {
-      console.error("No date labels found (check geoid=0 row in GeoJSON).");
     }
 
-    // Render the vaccine graph using Chart.js
-    function renderVaccineGraph(data) {
-      const ctx = document.getElementById('vaccineGraph').getContext('2d');
-      const labels = data.map(d => d.Day);
-      const doses = data.map(d => d["COVID-19 doses (daily, 7-day average, per million people)"]);
+    // ---- Add legend to the map ----
+    const legend = L.control({ position: 'bottomright' });
 
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Vaccine Doses (Daily, 7-Day Avg.)',
-            data: doses,
-            borderColor: '#007bff', // Changed to match the color scheme
-            fill: false,
-            borderWidth: 2
-          }]
-        },
-        options: {
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Date',
-                font: {
-                  size: 14
-                }
-              },
-              ticks: {
-                autoSkip: true,
-                maxTicksLimit: 10
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Doses per Million People',
-                font: {
-                  size: 14
-                }
-              },
-              beginAtZero: true
-            }
+    legend.onAdd = function (map) {
+      const div = L.DomUtil.create('div', 'info legend');
+      const grades = [0, 1000, 5000, 10000, 20000, 50000, 100000, 300000];
+      const labels = [];
+
+      div.innerHTML += '<h4>Weekly Cases</h4>';
+
+      for (let i = 0; i < grades.length; i++) {
+        const from = grades[i];
+        const to = grades[i + 1];
+        const color = getColor(from + 1);
+
+        labels.push(
+          `<i style="background:${color}"></i> ${from}${to ? '&ndash;' + to : '+'}`
+        );
+      }
+
+      div.innerHTML += labels.join('<br>');
+      return div;
+    };
+
+    legend.addTo(map);
+
+    // ---- Graph logic ----
+    const labels = vaccine.map(d => d.Day);
+    const vaccineData = vaccine.map(d => d["COVID-19 doses (daily, 7-day average, per million people)"]);
+    const deathData = deaths.map(d => d["Daily new confirmed deaths due to COVID-19 per million people (rolling 7-day average, right-aligned)"]);
+    const caseData = cases.map(d => d["Daily new confirmed cases of COVID-19 per million people (rolling 7-day average, right-aligned)"]);
+
+    const chartConfig = {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'COVID-19 Cases',
+            data: caseData,
+            borderColor: '#f0ad4e',
+            hidden: false,
+            borderWidth: 2,
+            fill: false
           },
-          responsive: true,
-          plugins: {
-            legend: {
-              display: true,
-              position: 'top'
-            },
-            tooltip: {
-              backgroundColor: '#333',
-              titleColor: '#fff',
-              bodyColor: '#fff'
-            }
+          {
+            label: 'COVID-19 Deaths',
+            data: deathData,
+            borderColor: '#d9534f',
+            hidden: false,
+            borderWidth: 2,
+            fill: false
+          },
+          {
+            label: 'Vaccine Doses',
+            data: vaccineData,
+            borderColor: '#007bff',
+            hidden: false,
+            borderWidth: 2,
+            fill: false
           }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Date' }, ticks: { maxTicksLimit: 10 } },
+          y: { title: { display: true, text: 'Per Million People' }, beginAtZero: true }
         }
-      });
-    }
+      }
+    };
 
-    // Add the legend to the map
-    function addLegend() {
-      const legend = L.control({position: 'bottomright'});
+    const covidChart = new Chart(document.getElementById('covidGraph').getContext('2d'), chartConfig);
 
-      legend.onAdd = function() {
-        const div = L.DomUtil.create('div', 'info legend');
-        const grades = [0, 1000, 5000, 10000, 20000, 50000, 100000];
-        const labels = [];
-        const colors = [
-          '#FFEDA0', '#FED976', '#FEB24C', '#FD8D3C', '#FC4E2A', '#E31A1C', '#BD0026', '#800026'
-        ];
+    document.getElementById('toggleCases').addEventListener('change', e => {
+      covidChart.data.datasets[0].hidden = !e.target.checked;
+      covidChart.update();
+    });
 
-        // Loop through the grades and generate a label with a colored square for each
-        for (let i = 0; i < grades.length; i++) {
-          labels.push(
-            '<i style="background:' + colors[i] + '"></i> ' +
-            grades[i] + (grades[i + 1] ? ' &ndash; ' + grades[i + 1] : '+')
-          );
-        }
+    document.getElementById('toggleDeaths').addEventListener('change', e => {
+      covidChart.data.datasets[1].hidden = !e.target.checked;
+      covidChart.update();
+    });
 
-        div.innerHTML = labels.join('<br>');
-        return div;
-      };
-
-      legend.addTo(map);
-    }
-
-    // Call the addLegend function to display the legend
-    addLegend();
-
-    // Render the vaccine graph with the embedded JSON data
-    renderVaccineGraph(vaccine); // Use the vaccine data from the external JS file
+    document.getElementById('toggleVaccines').addEventListener('change', e => {
+      covidChart.data.datasets[2].hidden = !e.target.checked;
+      covidChart.update();
+    });
   </script>
 
   <footer>
