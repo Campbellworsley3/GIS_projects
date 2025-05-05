@@ -177,6 +177,54 @@
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
+    // Adding a legend to the map
+// Adding a legend to the map
+// Adding a smaller legend to the map
+function createLegend() {
+  const legend = L.control({position: 'bottomright'});
+
+  legend.onAdd = function(map) {
+    const div = L.DomUtil.create('div', 'info legend');
+    const colorScale = [
+      { limit: 0, color: "#acfa70" },
+      { limit: 11, color: "#bdd730" },
+      { limit: 19, color: "#c7bf00" },
+      { limit: 21, color: "#c9b800" },
+      { limit: 23, color: "#ccb200" },
+      { limit: 25, color: "#ceab00" },
+      { limit: 41, color: "#d68f00" },
+      { limit: 45, color: "#d78800" },
+      { limit: 55, color: "#dd5f00" },
+      { limit: 65, color: "#df3300" },
+      { limit: 77, color: "#de0000" }
+    ];
+
+    // Create legend title
+    div.innerHTML = '<b>Percent Change</b><br>';
+
+    // Add color boxes with their ranges
+    for (let i = 0; i < colorScale.length - 1; i++) {
+      div.innerHTML +=
+        `<i style="background: ${colorScale[i].color}; width: 12px; height: 12px; display: inline-block; margin-right: 5px;"></i> ` + // smaller color boxes
+        `${colorScale[i].limit} - ${colorScale[i + 1].limit}<br>`;
+    }
+
+    // Adding styling for smaller legend display
+    div.style.padding = "5px";
+    div.style.backgroundColor = "white";
+    div.style.borderRadius = "5px";
+    div.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.1)";
+    div.style.fontSize = "12px"; // smaller font size
+
+    return div;
+  };
+
+  legend.addTo(map);
+}
+
+// Call the function to create the smaller legend on the map
+createLegend();
+
 
     // Get available time steps from property keys (same for both housing and perc data)
     const timeKeys = Object.keys(price.features[0].properties)
