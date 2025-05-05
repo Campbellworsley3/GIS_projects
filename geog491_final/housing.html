@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chapel Hill Housing Prices</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: rgb(238, 248, 237);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #map {
+      height: 500px;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .chart-container {
+      display: flex;
+      justify-content: space-around;
+      width: 90%;  /* Adjusted width for better spacing */
+      margin: 20px 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+    }
+
+    #slider-container, #toggle-container {
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #slider-container label, #toggle-container label {
+      margin-right: 10px;
+    }
+
+    #toggle-container {
+      margin-top: 20px;
+    }
+
+    h2 {
+      margin: 20px;
+      font-size: 24px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Chapel Hill Neighborhood Housing Prices</h2>
+
+  <!-- Mode Toggle -->
+  <div id="toggle-container">
+    <label for="modeToggle">Toggle Mode: </label>
+    <input type="checkbox" id="modeToggle"> Percent Change Mode
+  </div>
+
+  <!-- Date Slider -->
+  <div id="slider-container">
+    <label for="timeSlider">Select Date:</label>
+    <input type="range" id="timeSlider" min="0" max="0" step="1" value="0">
+    <span id="currentDate"></span>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Chart container -->
+  <div class="chart-container">
+    <div style="width: 48%">
+      <canvas id="interestChart" width="600" height="350"></canvas>
+    </div>
+    <div style="width: 48%">
+      <canvas id="unemploymentChart" width="600" height="350"></canvas>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="chapel_housing.js"></script>
+  <script src="housing_perc.js"></script>
+  <script src="unemployment.js"></script>
+  <script src="interest.js"></script>
+
+  <script>
+    // Helper function to convert hex color to RGB
+    function hexToRgb(hex) {
+      const match = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+      return {
+        r: parseInt(match[1], 16),
+        g: parseInt(match[2], 16),
+        b: parseInt(match[3], 16)
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase()}`;
+    }
+
+    // Function to interpolate between two colors based on the proportion
+    function interpolateColor(color1, color2, proportion) {
+      const rgb1 = hexToRgb(color1);
+      const rgb2 = hexToRgb(color2);
+
+      const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * proportion);
+      const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * proportion);
+      const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * proportion);
+
+      return rgbToHex(r, g, b);
+    }
+
+    // Function to get color for percent change with a smoother gradient
+    function getColor(perc) {
+      const percValue = parseFloat(perc.replace('%', ''));
+      if (isNaN(percValue)) return "#CCCCCC"; 
+
+      const colorScale = [
+        { limit: 0, color: "#acfa70" },
+        { limit: 3, color: "#aff466" },
+        { limit: 5, color: "#b2ef5b" },
+        { limit: 7, color: "#b4e951" },
+        { limit: 9, color: "#b7e346" },
+        { limit: 11, color: "#badd3b" },
+        { limit: 13, color: "#bdd730" },
+        { limit: 15, color: "#bfd123" },
+        { limit: 17, color: "#c2cb13" },
+        { limit: 19, color: "#c5c500" },
+        { limit: 21, color: "#c7bf00" },
+        { limit: 23, color: "#c9b800" },
+        { limit: 25, color: "#ccb200" },
+        { limit: 29, color: "#ceab00" },
+        { limit: 32, color: "#d0a400" },
+        { limit: 35, color: "#d29e00" },
+        { limit: 38, color: "#d49700" },
+        { limit: 41, color: "#d68f00" },
+        { limit: 45, color: "#d78800" },
+        { limit: 47, color: "#d98000" },
+        { limit: 49, color: "#da7900" },
+        { limit: 51, color: "#db7100" },
+        { limit: 53, color: "#dc6800" },
+        { limit: 55, color: "#dd5f00" },
+        { limit: 57, color: "#de5600" },
+        { limit: 59, color: "#de4c00" },
+        { limit: 61, color: "#df4000" },
+        { limit: 65, color: "#df3300" },
+        { limit: 69, color: "#de2200" },
+        { limit: 77, color: "#de0000" }
+      ];
+
+      let color = colorScale[0].color;
+      for (let i = 1; i < colorScale.length; i++) {
+        if (percValue >= colorScale[i-1].limit && percValue < colorScale[i].limit) {
+          const proportion = (percValue - colorScale[i-1].limit) / (colorScale[i].limit - colorScale[i-1].limit);
+          color = interpolateColor(colorScale[i-1].color, colorScale[i].color, proportion);
+        }
+      }
+      return color;
+    }
+
+    // Initialize the map
+    var map = L.map('map').setView([35.94, -79.02], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Get available time steps from property keys (same for both housing and perc data)
+    const timeKeys = Object.keys(price.features[0].properties)
+      .filter(key => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(key))
+      .sort((a, b) => new Date(a) - new Date(b));
+
+    const timeSlider = document.getElementById("timeSlider");
+    const currentDate = document.getElementById("currentDate");
+    timeSlider.max = timeKeys.length - 1;
+
+    let layerGroup;
+
+    function updateMap(index, isPercMode) {
+      const key = timeKeys[index];
+      currentDate.textContent = key;
+
+      if (layerGroup) {
+        map.removeLayer(layerGroup);
+      }
+
+      layerGroup = L.layerGroup();
+
+      price.features.forEach(feature => {
+        const priceValue = feature.properties[key];
+        const percValue = perc.features.find(f => f.properties.RegionName === feature.properties.RegionName)?.properties[key] || "0%";
+
+        const coords = feature.geometry.coordinates;
+        const latlng = [coords[1], coords[0]];
+
+        let markerOptions = {};
+        if (isPercMode) {
+          markerOptions = {
+            radius: 20,
+            fillColor: getColor(percValue),
+            color: "#000",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.7
+          };
+        } else {
+          markerOptions = {
+            radius: priceValue / 28000,
+            fillColor: "#0074D9",
+            color: "#000",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.7
+          };
+        }
+
+        const marker = L.circleMarker(latlng, markerOptions)
+          .bindPopup(
+            "<b>" + feature.properties.RegionName + "</b><br>" +
+            "Date: " + key + "<br>" +
+            (isPercMode ? "Percent Change: " + percValue : "Price: $" + priceValue.toLocaleString())
+          );
+
+        layerGroup.addLayer(marker);
+      });
+
+      layerGroup.addTo(map);
+    }
+
+    timeSlider.addEventListener("input", () => {
+      const isPercMode = document.getElementById("modeToggle").checked;
+      updateMap(timeSlider.value, isPercMode);
+    });
+
+    document.getElementById("modeToggle").addEventListener("change", () => {
+      updateMap(timeSlider.value, document.getElementById("modeToggle").checked);
+    });
+
+    updateMap(0, false);
+
+    // Initialize the charts
+    const interestChart = new Chart(document.getElementById('interestChart'), {
+      type: 'line',
+      data: {
+        labels: interest.map(data => `${data.Year} ${data.Quarter}`),
+        datasets: [{
+          label: '10Y Treasury Yield',
+          data: interest.map(data => data.Average_10Y_Treasury_Yield),
+          borderColor: 'rgb(75, 192, 192)',
+          borderWidth: 1,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Interest Rates Over Time'
+          }
+        }
+      }
+    });
+
+    const unemploymentChart = new Chart(document.getElementById('unemploymentChart'), {
+      type: 'line',
+      data: {
+        labels: unemployment.map(data => data.observation_date),
+        datasets: [{
+          label: 'Unemployment Rate',
+          data: unemployment.map(data => data.NCURN),
+          borderColor: 'rgb(153, 102, 255)',
+          borderWidth: 1,
+          fill: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Unemployment Rate Over Time'
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
