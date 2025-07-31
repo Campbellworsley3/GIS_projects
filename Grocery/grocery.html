@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grocery Price Comparison</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input { padding: 8px; width: 300px; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+  </style>
+</head>
+<body>
+
+  <h1>Grocery Price Comparison</h1>
+  <input type="text" id="searchBox" placeholder="Search products..." />
+
+  <table id="productsTable">
+    <thead>
+      <tr>
+        <th>Store</th>
+        <th>Product</th>
+        <th>Price</th>
+        <th>Department</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Rows go here -->
+    </tbody>
+  </table>
+  <script src="LF_all.js"></script>
+  <script src="WF_all.js"></script>
+  <script src="TJ_all.js"></script>
+
+  <script>
+    function normalize(data, store) {
+      return data.map(item => {
+        let name = item.Product || item.name || "Unknown";
+        let priceRaw = item.Price || item.price || "";
+        let department = item.Department || item.Brand || "N/A";
+
+        let priceStr = String(priceRaw);
+        let price = parseFloat(
+          priceStr.replace(/\$/g, '').replace('/lb', '').trim()
+        );
+
+        if (isNaN(price)) price = null;
+
+        return {
+          store,
+          product: name,
+          price,
+          department
+        };
+      });
+    }
+
+    const allProducts = [
+      ...normalize(LF, "Lowes Foods"),
+      ...normalize(TJ, "Trader Joe's"),
+      ...normalize(WF, "Whole Foods")
+    ];
+
+    function renderTable(products) {
+      const tbody = document.querySelector("#productsTable tbody");
+      tbody.innerHTML = "";
+
+      if (products.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">No products found.</td></tr>`;
+        return;
+      }
+
+      products.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.store}</td>
+          <td>${item.product}</td>
+          <td>${item.price !== null ? "$" + item.price.toFixed(2) : "N/A"}</td>
+          <td>${item.department}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Helper to get top N cheapest items per store
+    function getTopNCheapestPerStore(products, n) {
+      const grouped = {};
+
+      products.forEach(item => {
+        if (!grouped[item.store]) {
+          grouped[item.store] = [];
+        }
+        if (item.price !== null) { // only consider items with valid price
+          grouped[item.store].push(item);
+        }
+      });
+
+      // Sort each store's products by price ascending, then slice top n
+      for (const store in grouped) {
+        grouped[store].sort((a, b) => a.price - b.price);
+        grouped[store] = grouped[store].slice(0, n);
+      }
+
+      // Flatten back to array
+      return Object.values(grouped).flat();
+    }
+
+    // Initial render with all products (top 5 cheapest per store)
+    renderTable(getTopNCheapestPerStore(allProducts, 5));
+
+    document.getElementById("searchBox").addEventListener("input", function() {
+      const query = this.value.trim().toLowerCase();
+
+      if (!query) {
+        renderTable(getTopNCheapestPerStore(allProducts, 5));
+        return;
+      }
+
+      const regex = new RegExp(`\\b${query}\\b`, 'i');
+
+      // Filter by matching product (whole word), or store or department (substring)
+      const filtered = allProducts.filter(item =>
+        regex.test(item.product) ||
+        item.store.toLowerCase().includes(query) ||
+        item.department.toLowerCase().includes(query)
+      );
+
+      renderTable(getTopNCheapestPerStore(filtered, 5));
+    });
+  </script>
+</body>
+</html>

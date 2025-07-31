@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Portfolio</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #a1d59d;
+      margin: 0;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .project-list {
+      list-style: none;
+      padding: 0;
+    }
+    .project-item {
+      background: white;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .project-item a {
+      text-decoration: none;
+      color: #1a73e8;
+      font-size: 1.2rem;
+    }
+    .project-item a:hover {
+      text-decoration: underline;
+    }
+    .description {
+      color: #555;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Campbell Worsley | GIS Projects</h1>
+    <p1>This Portfolio provides a few examples of interactive webmaps that I have created to inform users on varying issues</p1>
+    <ul class="project-list">
+      <li class="project-item">
+        <a href="https://campbellworsley3.github.io/GIS_projects/Final_project/covid_map_2.html" target="_blank">COVID-19 Weekly Cases By County</a>
+        <p class="description">This is a choropleth map created using QGIS, Python, JavaScript leaflet, and HTML. It displays the running case count for each county in the US for each week from 2020-2023.</p>
+      </li>
+      <li class="project-item">
+        <a href="https://campbellworsley3.github.io/GIS_projects/geog491_final/housing.html" target="_blank">Chapel Hill Neighborhood Median Housing Price</a>
+        <p class="description">This project utilized Python, QGIS, JavaScript, and HTML to create a visualization of the changing housing prices in Chaple Hill, NC from 2020-2025.</p>
+      </li>
+      <li class="project-item">
+        <a href="https://campbellworsley3.github.io/GIS_projects/DataFest_map/manhattan_map.html" target="_blank">Manhattan Rent Pricing Map</a>
+        <p class="description">This project takes Manhattan leasing data and displays the change in leasing price before, during, and after the COVID-19 pandemic in an effort to inform companies of leasing trends. </p>
+      </li>
+      <!-- Add more projects as needed -->
+    </ul>
+  </div>
+</body>
+</html>
